@@ -5,6 +5,7 @@ import java.io.BufferedOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
+import java.nio.file.Files;
 import java.net.URL;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipInputStream;
@@ -13,6 +14,7 @@ import org.apache.cordova.CallbackContext;
 import org.apache.cordova.CordovaPlugin;
 import org.json.JSONArray;
 import org.json.JSONException;
+import android.util.Log;
 
 public class Zeep extends CordovaPlugin
 {
@@ -37,6 +39,7 @@ public class Zeep extends CordovaPlugin
         }
         catch (Exception e)
         {
+           Log.i("Zeep Exception","An error occurred", e);
             callbackContext.error(e.getMessage());
             return false;
         }
@@ -97,7 +100,15 @@ public class Zeep extends CordovaPlugin
         try
         {
             final File fromFile = getFile(from);
-            final File toFile = getFile(to);
+            // final File toFile = new File(to);
+            final File filesDir = this.cordova.getActivity().getApplicationContext().getFilesDir();
+            String toTruncated = to.replace(filesDir.getPath(), "");
+            toTruncated = toTruncated.replace("file://","");
+            Log.i("Zeep","Truncated: "+toTruncated);
+            final File toFile = new File(filesDir, toTruncated);
+            
+            
+            
             final byte[] buffer = new byte[BUFFER_SIZE];
             
             inStream = new ZipInputStream(new BufferedInputStream(new FileInputStream(fromFile)));
@@ -105,21 +116,21 @@ public class Zeep extends CordovaPlugin
             ZipEntry entry; while((entry = inStream.getNextEntry()) != null)
             {
                 BufferedOutputStream outStream = null;
-                
                 try
                 {
-                    File file = new File(toFile, entry.getName());
-                    file.getParentFile().mkdirs();
-                    if (!entry.isDirectory()) 
+                  File file = new File(toFile, entry.getName());
+                  file.getParentFile().mkdirs();
+                  if(!entry.isDirectory()){
+                     Log.i("Zeep","Entry is file, creating stream: "+file.getPath());
+                     outStream = new BufferedOutputStream(new FileOutputStream(file), BUFFER_SIZE); 
+                     int count; 
+                      
+                     while ((count = inStream.read(buffer, 0, BUFFER_SIZE)) != -1) 
                      { 
-                        outStream = new BufferedOutputStream(new FileOutputStream(file), BUFFER_SIZE); 
-                        int count; 
-                         
-                        while ((count = inStream.read(buffer, 0, BUFFER_SIZE)) != -1) 
-                        { 
-                              outStream.write(buffer, 0, count); 
-                        } 
+                           outStream.write(buffer, 0, count); 
                      } 
+                     Log.i("Zeep","Stream written");
+                  }
                 }
                 finally
                 {
